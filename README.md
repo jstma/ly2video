@@ -106,6 +106,25 @@ Once you have `virtualenvwrapper` installed, it's as simple as:
     mkvirtualenv ly2video
     pip install -r requirements.txt
 
+You can also create the virtual environment manually:
+
+    python3 -m venv venv
+    source venv/bin/activate
+    cd ly2video
+    pip install -r requirements.txt
+    pip install .
+
+Before using ly2video this way, you must always activate the virtual enviroment.
+
+If there is an error building wheel, you can safely ignore it.  You can also
+
+   pip install wheel
+
+or you can use these commands instead:
+
+    pip install -r requirements.txt --no-binary=midi
+    pip install . --no-binary=ly2video
+
 ### Installing ly2video itself
 
 This is done via [Python's standard package installation
