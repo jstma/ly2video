@@ -150,10 +150,10 @@ All actions applied in container to your files (LILY_FILES) will change your fil
 Firstly, please check the [issue tracker](https://github.com/aspiers/ly2video/issues)
 for known issues, and if yours is not there, please submit it.
 
-Secondly, if you are able to perform some [[trouble-shooting|TROUBLE-SHOOTING]]
+Secondly, if you are able to perform some [trouble-shooting](TROUBLE-SHOOTING.md)
 yourself, even if you can't identify the exact problem or suggest a fix, any
 extra light you can shed will greatly increase the chances of it
-being fixed.  Please see the [[trouble-shooting|TROUBLE-SHOOTING]] guide for
+being fixed.  Please see the [trouble-shooting](TROUBLE-SHOOTING.md) guide for
 information on how to do this.
 
 If you know how to fix a problem or contribute an enhancement, you are
