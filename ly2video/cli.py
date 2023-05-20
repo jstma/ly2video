@@ -327,6 +327,54 @@ def generateTitleFrame(titleText, width, height, ttfFile):
 
     return titleScreen
 
+def generateBeats(width, height, ttfFile, beatstempo, beats, fps):
+    """
+    Generates frames with count-in beats.
+
+    Params:
+    - width:        pixel width of frames (and video)
+    - height:       pixel height of frames (and video)
+    - ttfFile:      path to TTF file to use for title text
+    - fps:          frame rate (frames per second) of final video
+    - beatstempo:   tempo
+    - beats         number of count-in beats
+    """
+
+    #I had the zero displayed because it otherwise seemed very abrupt. A click-track could help this. A nice feature would be option to make last note red (or other color).
+
+    # save folder for frames
+    if not os.path.exists("beats"):
+        os.mkdir("beats")
+
+    totalFrames = int(round((60.000/beatstempo) * fps))
+
+    for currentBeat in range(beats+1):
+
+        printBeat = currentBeat
+
+        # create image of beat screen
+        beatScreen = Image.new("RGB", (width, height), (255,255,255))
+        # it will draw text on titleScreen
+        drawer = ImageDraw.Draw(beatScreen)
+
+        progress("Beats: ly2video will generate approx. %d frames." % totalFrames)
+        progress("Beats: %s." % ttfFile)
+        # font for beat args - font type, size
+        nameFont = ImageFont.truetype(ttfFile, int(height / 10))
+
+        # args - position of left upper corner of rectangle (around text), text, font and color (black)
+        drawer.text(((width - nameFont.getsize("%d" % printBeat)[0]) / 2,
+                 (height - nameFont.getsize("%d" % printBeat)[1]) / 2 - height / 25),
+                "%d" % printBeat, font=nameFont, fill=(0,0,0))
+
+        # generate needed number of frames (= (60/tempo) * fps)
+        for frameNum in xrange(totalFrames):
+            beatScreen.save(tmpPath("beats", "frame%04d.png" % ((currentBeat*totalFrames)+frameNum)))
+
+        progress("Beats: Generating title screen has ended. (%d/%d)" %
+                 (totalFrames, totalFrames))
+
+    return 0
 
 def staffSpacesToPixels(ss, dpi):
     staffSpacePoints = GLOBAL_STAFF_SIZE / 4
@@ -946,6 +994,24 @@ def parseOptions():
         help="show program version",
         action="store_true", default=False)
 
+    group_countin = parser.add_argument_group(title="Count-in Beats")
+
+    group_countin.add_argument(
+        "--count-in", dest="beatsAtStart",
+        help='adds count in beat screens at the start of video',
+        action="store_true", default=False)
+    #would be best if these next options were pulled from lily file. This would require something to read time signature and recognize compound time so as to divide prefix by 3 for proper amount of count-in beats(6/8 = 2 count in beats). 
+    group_countin.add_argument(
+        "--beats", dest="beats",
+        help='number of count-in beats',
+        type=int, metavar="BEATS", default=False)
+    group_countin.add_argument(
+        "--tempo", dest="beatstempo",
+        help='tempo of music -needs compound meter explained',
+        type=float, metavar="TEMPO", default=False)
+    #not sure if dest='tempo' would conflict, used beatstempo instead.
+    #another nice option would be for multiple measures of count-in.
+
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(0)
@@ -955,7 +1021,7 @@ def parseOptions():
     if options.showVersion:
         showVersion()
 
-    if options.titleAtStart and options.titleTtfFile is None:
+    if (options.titleAtStart or options.beatsAtStart) and options.titleTtfFile is None:
         fatal("Must specify --title-ttf=FONT-FILE with --title-at-start.")
 
     if options.debug:
@@ -1198,6 +1264,34 @@ def generateSilentVideo(ffmpeg, fps, quality, desiredDuration, name, srcFrame):
     output_divider_line()
     return out
 
+def imageFileToBytes(file):
+    f = BytesIO()
+    image = Image.open(file)
+    image.save(f, format="BMP")
+    return f.getvalue()
+
+def generateBeatVideo(ffmpeg, fps, quality, beatstempo, beats, name, srcFrame):
+    beatFrames = sorted(os.listdir('beats'))
+    out         = tmpPath('%s.mpg' % name)
+    frames = int(((beats / beatstempo) * 60) * fps)
+    trueDuration = float(frames) / fps
+    progress("Generating beat video %s, duration %fs\n" %
+             (out, trueDuration))
+    silentAudio = generateSilence(name, trueDuration)
+    cmd = [
+        ffmpeg,
+        "-nostdin",
+        "-f", "image2pipe",
+        "-r", str(fps),
+        "-i", "-",
+        "-i", silentAudio,
+        "-q:v", quality,
+        "-f", "avi",
+        out
+    ]
+    safeRunInput(cmd, inputs=(imageFileToBytes('beats/'+frame) for frame in beatFrames), exitcode=16)
+    output_divider_line()
+    return out
 
 def generateVideo(ffmpeg, options, wavPath, titleText, frameWriter, outputFile):
     fps = float(options.fps)
@@ -1228,6 +1322,17 @@ def generateVideo(ffmpeg, options, wavPath, titleText, frameWriter, outputFile):
         video = generateSilentVideo(ffmpeg, fps, quality,
                                     float(options.titleDuration),
                                     'title', titleFrame)
+        videos.insert(0, video)
+
+    if options.beatsAtStart:
+        beatFrames = generateBeats(options.width, options.height,
+                      options.titleTtfFile, options.beatstempo, options.beats, fps)
+
+        output_divider_line()
+
+        video = generateBeatVideo(ffmpeg, fps, quality,
+                                    options.beatstempo, options.beats,
+                                    'beats', beatFrames)
         videos.insert(0, video)
 
     if len(videos) == 1:
